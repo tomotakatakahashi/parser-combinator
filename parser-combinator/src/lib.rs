@@ -88,6 +88,35 @@ where
     }
 }
 
+fn space() -> Many<Sat<impl Fn(char) -> bool>> {
+    Many {
+        parser: Sat {
+            predicate: |c| c.is_whitespace(),
+        },
+    }
+}
+
+struct Token<P> {
+    parser: P,
+}
+
+impl<P, T> Parser<T> for Token<P>
+where
+    P: Parser<T>,
+{
+    fn parse<'a>(&self, input: &'a str) -> Option<(T, &'a str)> {
+        let space_parser = space();
+        let leading_spaces_trimmed = space_parser.parse(input).unwrap().1;
+        return match self.parser.parse(leading_spaces_trimmed) {
+            None => None,
+            Some((v, out)) => {
+                let (_, rest) = space_parser.parse(out).unwrap();
+                Some((v, rest))
+            }
+        };
+    }
+}
+
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
@@ -130,5 +159,13 @@ mod tests {
         let parser = Many { parser: digit() };
         assert_eq!(parser.parse("123abc"), Some((vec!['1', '2', '3'], "abc")));
         assert_eq!(parser.parse("abc"), Some((vec![], "abc")));
+    }
+
+    #[test]
+    fn token() {
+        let parser = Token {
+            parser: Many { parser: digit() },
+        };
+        assert_eq!(parser.parse("  12  a"), Some((vec!['1', '2'], "a")));
     }
 }
