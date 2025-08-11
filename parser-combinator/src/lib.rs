@@ -116,37 +116,21 @@ fn nat() -> Box<Parser<'static, u32>> {
     })
 }
 
+fn expr() -> Box<Parser<'static, u32>> {
+    let add = ret(
+        seq(token(nat()), seq(token(char_parser('+')), token(nat()))),
+        |v| v.0 + v.1 .1,
+    );
+    alt(add, term())
+}
+
+fn term() -> Box<Parser<'static, u32>> {
+    alt(expr(), nat())
+}
+
 /*
 Expr = Add Term Expr | Val Term
 Term = Expr Expr | Val Int
-
-fn expr() -> Box<dyn Parser<u32>> {
-    let add = Return {
-        parser: Seq {
-            parser1: Token { parser: Nat {} },
-            parser2: Seq {
-                parser1: Token {
-                    parser: char_parser('+'),
-                },
-                parser2: Token { parser: Nat {} },
-            },
-        },
-        converter: |v| v.0 + v.1 .1,
-        _phantom_s: PhantomData,
-        _phantom_t: PhantomData,
-    };
-    Box::new(Alt {
-        parser1: add,
-        parser2: *term(),
-    })
-}
-
-fn term() -> Box<dyn Parser<u32>> {
-    Box::new(Alt {
-        parser1: *expr(),
-        parser2: Nat {},
-    })
-}
 */
 
 #[cfg(test)]
@@ -202,5 +186,10 @@ mod tests {
     #[test]
     fn nat_works() {
         assert_eq!(nat()("123abc"), Some((123, "abc")));
+    }
+
+    #[test]
+    fn expr_works() {
+        assert_eq!(expr()("123"), Some((123, "")));
     }
 }
