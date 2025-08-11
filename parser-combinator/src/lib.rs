@@ -152,6 +152,24 @@ where
     }
 }
 
+struct Alt<P1, P2> {
+    parser1: P1,
+    parser2: P2,
+}
+
+impl<P1, P2, T> Parser<T> for Alt<P1, P2>
+where
+    P1: Parser<T>,
+    P2: Parser<T>,
+{
+    fn parse<'a>(&self, input: &'a str) -> Option<(T, &'a str)> {
+        match self.parser1.parse(input) {
+            Some(x) => Some(x),
+            None => self.parser2.parse(input),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,5 +235,17 @@ mod tests {
         assert_eq!(paren_parser.parse("  (  123  )  a").unwrap().0 .1 .0, 123);
         assert_eq!(paren_parser.parse("  (  123  )  a").unwrap().1, "a");
         assert_eq!(paren_parser.parse("a 123 "), None);
+    }
+
+    #[test]
+    fn alt_works() {
+        let alt_parser = Alt {
+            parser1: char_parser('+'),
+            parser2: char_parser('-'),
+        };
+
+        assert_eq!(alt_parser.parse("+1"), Some(('+', "1")));
+        assert_eq!(alt_parser.parse("-2"), Some(('-', "2")));
+        assert_eq!(alt_parser.parse("~3"), None);
     }
 }
