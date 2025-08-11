@@ -96,6 +96,35 @@ where
     })
 }
 
+fn some<T: 'static>(parser: Box<Parser<'static, T>>) -> Box<Parser<'static, Vec<T>>> {
+    // Copy and paste the many function becuase I couldn't resolve an ownership issue.
+    Box::new(move |input: &str| {
+        let mut results = Vec::new();
+        let mut original_input = input;
+
+        loop {
+            // 元のパーサーで解析を試みる
+            match parser(original_input) {
+                Some((result, next_input)) => {
+                    // 成功したら結果を保存し、次の入力に進む
+                    results.push(result);
+                    original_input = next_input;
+                }
+                None => {
+                    // 失敗したらループを抜ける
+                    break;
+                }
+            }
+        }
+
+        if results.is_empty() {
+            None
+        } else {
+            Some((results, original_input))
+        }
+    })
+}
+
 fn token<T: 'static>(parser: Box<Parser<'static, T>>) -> Box<Parser<'static, T>> {
     Box::new(move |input: &str| {
         let leading_spaces_trimmed = space()(input).unwrap().1;
@@ -110,7 +139,7 @@ fn token<T: 'static>(parser: Box<Parser<'static, T>>) -> Box<Parser<'static, T>>
 }
 
 fn nat() -> Box<Parser<'static, u32>> {
-    ret(many(digit()), |v| {
+    ret(some(digit()), |v| {
         let string_repr: String = v.into_iter().collect();
         string_repr.parse().unwrap()
     })
@@ -186,6 +215,7 @@ mod tests {
     #[test]
     fn nat_works() {
         assert_eq!(nat()("123abc"), Some((123, "abc")));
+        assert_eq!(nat()(""), None);
     }
 
     #[test]
