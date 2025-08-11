@@ -1,78 +1,47 @@
-use std::marker::PhantomData;
+type Parser<'a, T> = dyn Fn(&'a str) -> Option<(T, &'a str)>;
 
-trait Parser<T> {
-    fn parse<'a>(&self, input: &'a str) -> Option<(T, &'a str)>;
-}
-
-struct Item;
-
-impl Parser<char> for Item {
-    fn parse<'a>(&self, input: &'a str) -> Option<(char, &'a str)> {
+fn item<'a>() -> Box<Parser<'a, char>> {
+    Box::new(|input: &str| {
         let mut chars = input.chars();
         return match chars.next() {
-            Some(c) => return Some((c, chars.as_str())),
+            Some(c) => Some((c, chars.as_str())),
             None => None,
         };
-    }
+    })
 }
 
-struct Sat<F>
+fn sat<'a, F>(predicate: F) -> Box<Parser<'a, char>>
 where
-    F: Fn(char) -> bool,
+    F: Fn(char) -> bool + 'static,
 {
-    predicate: F,
-}
-
-impl<F> Parser<char> for Sat<F>
-where
-    F: Fn(char) -> bool,
-{
-    fn parse<'a>(&self, input: &'a str) -> Option<(char, &'a str)> {
-        let item = Item {};
-        let item_result = item.parse(input);
-        return match item_result {
-            None => None,
-            Some(out) => {
-                if (self.predicate)(out.0) {
-                    item_result
-                } else {
-                    None
-                }
+    Box::new(move |input: &str| match item()(input) {
+        None => None,
+        Some((v, out)) => {
+            if predicate(v) {
+                Some((v, out))
+            } else {
+                None
             }
-        };
-    }
+        }
+    })
 }
 
-fn digit() -> Sat<impl Fn(char) -> bool> {
-    Sat {
-        predicate: |c| c.is_ascii_digit(),
-    }
+fn digit<'a>() -> Box<Parser<'a, char>> {
+    sat(|c| c.is_ascii_digit())
 }
 
-fn char_parser(target: char) -> Sat<impl Fn(char) -> bool> {
-    Sat {
-        predicate: move |c: char| c == target,
-    }
+fn char_parser<'a>(target: char) -> Box<Parser<'a, char>> {
+    sat(move |c| c == target)
 }
 
-// `many`パーサーを表現する構造体
-// Pは元のパーサー、Tは元のパーサーが返す値の型
-struct Many<P> {
-    parser: P,
-}
-
-// `many`パーサーの`Parser`トレイト実装
-impl<P, T> Parser<Vec<T>> for Many<P>
-where
-    P: Parser<T>,
-{
-    fn parse<'a>(&self, mut input: &'a str) -> Option<(Vec<T>, &'a str)> {
+fn many<T: 'static>(parser: Box<Parser<'static, T>>) -> Box<Parser<'static, Vec<T>>> {
+    Box::new(move |input: &str| {
         let mut results = Vec::new();
         let mut original_input = input;
 
         loop {
             // 元のパーサーで解析を試みる
-            match self.parser.parse(original_input) {
+            match parser(original_input) {
                 Some((result, next_input)) => {
                     // 成功したら結果を保存し、次の入力に進む
                     results.push(result);
@@ -87,17 +56,37 @@ where
 
         // 0回でも成功とみなす
         Some((results, original_input))
-    }
+    })
 }
 
-fn space() -> Many<Sat<impl Fn(char) -> bool>> {
-    Many {
-        parser: Sat {
-            predicate: |c| c.is_whitespace(),
+fn space() -> Box<Parser<'static, Vec<char>>> {
+    many(sat(|c| c.is_whitespace()))
+}
+
+fn seq<S: 'static, T: 'static>(
+    parser1: Box<Parser<'static, S>>,
+    parser2: Box<Parser<'static, T>>,
+) -> Box<Parser<'static, (S, T)>> {
+    Box::new(move |input: &str| match parser1(input) {
+        None => None,
+        Some((v1, out1)) => match parser2(out1) {
+            None => None,
+            Some((v2, out2)) => Some(((v1, v2), out2)),
         },
-    }
+    })
 }
 
+fn alt<T: 'static>(
+    parser1: Box<Parser<'static, T>>,
+    parser2: Box<Parser<'static, T>>,
+) -> Box<Parser<'static, T>> {
+    Box::new(move |input: &str| match parser1(input) {
+        Some(x) => Some(x),
+        None => parser2(input),
+    })
+}
+
+/*
 struct Token<P> {
     parser: P,
 }
@@ -133,45 +122,6 @@ impl Parser<u32> for Nat {
     }
 }
 
-struct Seq<P1, P2> {
-    parser1: P1,
-    parser2: P2,
-}
-
-impl<P1, P2, S, T> Parser<(S, T)> for Seq<P1, P2>
-where
-    P1: Parser<S>,
-    P2: Parser<T>,
-{
-    fn parse<'a>(&self, input: &'a str) -> Option<((S, T), &'a str)> {
-        match self.parser1.parse(input) {
-            None => None,
-            Some((v1, out1)) => match self.parser2.parse(out1) {
-                None => None,
-                Some((v2, out2)) => Some(((v1, v2), out2)),
-            },
-        }
-    }
-}
-
-struct Alt<P1, P2> {
-    parser1: P1,
-    parser2: P2,
-}
-
-impl<P1, P2, T> Parser<T> for Alt<P1, P2>
-where
-    P1: Parser<T>,
-    P2: Parser<T>,
-{
-    fn parse<'a>(&self, input: &'a str) -> Option<(T, &'a str)> {
-        match self.parser1.parse(input) {
-            Some(x) => Some(x),
-            None => self.parser2.parse(input),
-        }
-    }
-}
-
 struct Return<P, F, S, T>
 where
     P: Parser<S>,
@@ -196,40 +146,86 @@ where
     }
 }
 
+*/
+
+/*
+Expr = Add Term Expr | Val Term
+Term = Expr Expr | Val Int
+
+fn expr() -> Box<dyn Parser<u32>> {
+    let add = Return {
+        parser: Seq {
+            parser1: Token { parser: Nat {} },
+            parser2: Seq {
+                parser1: Token {
+                    parser: char_parser('+'),
+                },
+                parser2: Token { parser: Nat {} },
+            },
+        },
+        converter: |v| v.0 + v.1 .1,
+        _phantom_s: PhantomData,
+        _phantom_t: PhantomData,
+    };
+    Box::new(Alt {
+        parser1: add,
+        parser2: *term(),
+    })
+}
+
+fn term() -> Box<dyn Parser<u32>> {
+    Box::new(Alt {
+        parser1: *expr(),
+        parser2: Nat {},
+    })
+}
+*/
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn item() {
-        let input = "abc";
-        let item = Item {};
-        let result = item.parse(input);
-        assert_eq!(result, Some(('a', "bc")));
+    fn item_works() {
+        assert_eq!(item()("abc"), Some(('a', "bc")));
     }
 
     #[test]
     fn digit_works() {
-        let digit = digit();
-
-        assert_eq!(digit.parse("123"), Some(('1', "23")));
-        assert_eq!(digit.parse("abc"), None);
+        assert_eq!(digit()("123"), Some(('1', "23")));
+        assert_eq!(digit()("abc"), None);
     }
 
     #[test]
     fn char_parser_works() {
         let parser = char_parser('a');
-        assert_eq!(parser.parse("abc"), Some(('a', "bc")));
-        assert_eq!(parser.parse("123"), None);
+        assert_eq!(parser("abc"), Some(('a', "bc")));
+        assert_eq!(parser("123"), None);
     }
 
     #[test]
-    fn digits_work() {
-        let parser = Many { parser: digit() };
-        assert_eq!(parser.parse("123abc"), Some((vec!['1', '2', '3'], "abc")));
-        assert_eq!(parser.parse("abc"), Some((vec![], "abc")));
+    fn space_work() {
+        assert_eq!(space()("   abc"), Some((vec![' ', ' ', ' '], "abc")));
+        assert_eq!(space()("abc"), Some((vec![], "abc")));
     }
 
+    #[test]
+    fn seq_works() {
+        let paren_parser = seq(char_parser('('), seq(digit(), char_parser(')')));
+        assert_eq!(paren_parser("(1)2"), Some((('(', ('1', ')')), "2")));
+        assert_eq!(paren_parser("1)"), None);
+    }
+
+    #[test]
+    fn alt_works() {
+        let alt_parser = alt(char_parser('+'), char_parser('-'));
+
+        assert_eq!(alt_parser("+1"), Some(('+', "1")));
+        assert_eq!(alt_parser("-2"), Some(('-', "2")));
+        assert_eq!(alt_parser("~3"), None);
+    }
+
+    /*
     #[test]
     fn token() {
         let parser = Token {
@@ -242,37 +238,6 @@ mod tests {
     fn nat_works() {
         let parser = Nat {};
         assert_eq!(parser.parse("123abc"), Some((123, "abc")));
-    }
-
-    #[test]
-    fn seq_works() {
-        let paren_parser = Seq {
-            parser1: Token {
-                parser: char_parser('('),
-            },
-            parser2: Seq {
-                parser1: Token { parser: Nat {} },
-                parser2: Token {
-                    parser: char_parser(')'),
-                },
-            },
-        };
-
-        assert_eq!(paren_parser.parse("  (  123  )  a").unwrap().0 .1 .0, 123);
-        assert_eq!(paren_parser.parse("  (  123  )  a").unwrap().1, "a");
-        assert_eq!(paren_parser.parse("a 123 "), None);
-    }
-
-    #[test]
-    fn alt_works() {
-        let alt_parser = Alt {
-            parser1: char_parser('+'),
-            parser2: char_parser('-'),
-        };
-
-        assert_eq!(alt_parser.parse("+1"), Some(('+', "1")));
-        assert_eq!(alt_parser.parse("-2"), Some(('-', "2")));
-        assert_eq!(alt_parser.parse("~3"), None);
     }
 
     #[test]
@@ -299,5 +264,5 @@ mod tests {
 
         assert_eq!(factor_parser.parse(" ( 123 )"), Some((123, "")));
         assert_eq!(factor_parser.parse("123"), Some((123, "")));
-    }
+    }*/
 }
