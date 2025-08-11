@@ -117,6 +117,20 @@ where
     }
 }
 
+struct Nat {}
+impl Parser<u32> for Nat {
+    fn parse<'a>(&self, input: &'a str) -> Option<(u32, &'a str)> {
+        let digits_parser = Many { parser: digit() };
+        match digits_parser.parse(input) {
+            None => None,
+            Some((v, out)) => {
+                let string_repr: String = v.into_iter().collect();
+                Some((string_repr.parse().unwrap(), out))
+            }
+        }
+    }
+}
+
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
@@ -167,5 +181,11 @@ mod tests {
             parser: Many { parser: digit() },
         };
         assert_eq!(parser.parse("  12  a"), Some((vec!['1', '2'], "a")));
+    }
+
+    #[test]
+    fn nat_works() {
+        let parser = Nat {};
+        assert_eq!(parser.parse("123abc"), Some((123, "abc")));
     }
 }
