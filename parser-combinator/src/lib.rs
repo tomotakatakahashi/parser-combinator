@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 trait Parser<T> {
     fn parse<'a>(&self, input: &'a str) -> Option<(T, &'a str)>;
 }
@@ -170,6 +172,30 @@ where
     }
 }
 
+struct Return<P, F, S, T>
+where
+    P: Parser<S>,
+    F: Fn(S) -> T,
+{
+    parser: P,
+    converter: F,
+    _phantom_s: PhantomData<S>,
+    _phantom_t: PhantomData<T>,
+}
+
+impl<P, F, S, T> Parser<T> for Return<P, F, S, T>
+where
+    P: Parser<S>,
+    F: Fn(S) -> T,
+{
+    fn parse<'a>(&self, input: &'a str) -> Option<(T, &'a str)> {
+        return match self.parser.parse(input) {
+            None => None,
+            Some((v, out)) => Some(((self.converter)(v), out)),
+        };
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -247,5 +273,31 @@ mod tests {
         assert_eq!(alt_parser.parse("+1"), Some(('+', "1")));
         assert_eq!(alt_parser.parse("-2"), Some(('-', "2")));
         assert_eq!(alt_parser.parse("~3"), None);
+    }
+
+    #[test]
+    fn return_works() {
+        let factor_parser = Alt {
+            parser1: Return {
+                parser: Seq {
+                    parser1: Token {
+                        parser: char_parser('('),
+                    },
+                    parser2: Seq {
+                        parser1: Token { parser: Nat {} },
+                        parser2: Token {
+                            parser: char_parser(')'),
+                        },
+                    },
+                },
+                converter: |c| c.1 .0,
+                _phantom_s: PhantomData,
+                _phantom_t: PhantomData,
+            },
+            parser2: Token { parser: Nat {} },
+        };
+
+        assert_eq!(factor_parser.parse(" ( 123 )"), Some((123, "")));
+        assert_eq!(factor_parser.parse("123"), Some((123, "")));
     }
 }
