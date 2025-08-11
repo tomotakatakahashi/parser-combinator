@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 type Parser<'a, T> = dyn Fn(&'a str) -> Option<(T, &'a str)>;
 
 fn item<'a>() -> Box<Parser<'a, char>> {
@@ -145,22 +148,54 @@ fn nat() -> Box<Parser<'static, u32>> {
     })
 }
 
+// 遅延評価を実現するパーサーコンビネーター
+fn lazy<T: 'static>(
+    parser_fn: impl Fn() -> Box<Parser<'static, T>> + 'static,
+) -> Box<Parser<'static, T>> {
+    // RcとRefCellを使って、パーサーを一度だけ初期化する
+    let parser_cell = Rc::new(RefCell::new(None));
+    Box::new(move |input: &str| {
+        // もしパーサーがまだ初期化されていなければ、ここで初期化
+        if parser_cell.borrow().is_none() {
+            *parser_cell.borrow_mut() = Some(parser_fn());
+        }
+        // 初期化されたパーサーを実行
+        parser_cell.borrow().as_ref().unwrap()(input)
+    })
+}
+
 fn expr() -> Box<Parser<'static, u32>> {
     let add = ret(
-        seq(token(nat()), seq(token(char_parser('+')), token(nat()))),
+        seq(
+            token(lazy(|| term())),
+            seq(token(char_parser('+')), token(lazy(|| expr()))),
+        ),
         |v| v.0 + v.1 .1,
     );
-    alt(add, term())
+    alt(add, lazy(|| term()))
 }
 
 fn term() -> Box<Parser<'static, u32>> {
-    alt(expr(), nat())
+    let mul = ret(
+        seq(
+            token(lazy(|| factor())),
+            seq(token(char_parser('*')), token(lazy(|| term()))),
+        ),
+        |(left, (_, right))| left * right,
+    );
+    alt(mul, lazy(|| factor()))
 }
 
-/*
-Expr = Add Term Expr | Val Term
-Term = Expr Expr | Val Int
-*/
+fn factor() -> Box<Parser<'static, u32>> {
+    let paren = ret(
+        seq(
+            token(char_parser('(')),
+            seq(lazy(|| expr()), token(char_parser(')'))),
+        ),
+        |(_c1, (x, _c2))| x,
+    );
+    alt(paren, nat())
+}
 
 #[cfg(test)]
 mod tests {
@@ -221,5 +256,8 @@ mod tests {
     #[test]
     fn expr_works() {
         assert_eq!(expr()("123"), Some((123, "")));
+        assert_eq!(expr()("1 + 23"), Some((24, "")));
+        assert_eq!(expr()("1 + (2 + 3)"), Some((6, "")));
+        assert_eq!(expr()("1 + (2 + 3) * ((4))"), Some((21, "")));
     }
 }
