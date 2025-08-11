@@ -53,6 +53,41 @@ fn char_parser(target: char) -> Sat<impl Fn(char) -> bool> {
     }
 }
 
+// `many`パーサーを表現する構造体
+// Pは元のパーサー、Tは元のパーサーが返す値の型
+struct Many<P> {
+    parser: P,
+}
+
+// `many`パーサーの`Parser`トレイト実装
+impl<P, T> Parser<Vec<T>> for Many<P>
+where
+    P: Parser<T>,
+{
+    fn parse<'a>(&self, mut input: &'a str) -> Option<(Vec<T>, &'a str)> {
+        let mut results = Vec::new();
+        let mut original_input = input;
+
+        loop {
+            // 元のパーサーで解析を試みる
+            match self.parser.parse(original_input) {
+                Some((result, next_input)) => {
+                    // 成功したら結果を保存し、次の入力に進む
+                    results.push(result);
+                    original_input = next_input;
+                }
+                None => {
+                    // 失敗したらループを抜ける
+                    break;
+                }
+            }
+        }
+
+        // 0回でも成功とみなす
+        Some((results, original_input))
+    }
+}
+
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
@@ -88,5 +123,12 @@ mod tests {
         let parser = char_parser('a');
         assert_eq!(parser.parse("abc"), Some(('a', "bc")));
         assert_eq!(parser.parse("123"), None);
+    }
+
+    #[test]
+    fn digits_work() {
+        let parser = Many { parser: digit() };
+        assert_eq!(parser.parse("123abc"), Some((vec!['1', '2', '3'], "abc")));
+        assert_eq!(parser.parse("abc"), Some((vec![], "abc")));
     }
 }
