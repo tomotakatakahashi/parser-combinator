@@ -131,6 +131,27 @@ impl Parser<u32> for Nat {
     }
 }
 
+struct Seq<P1, P2> {
+    parser1: P1,
+    parser2: P2,
+}
+
+impl<P1, P2, S, T> Parser<(S, T)> for Seq<P1, P2>
+where
+    P1: Parser<S>,
+    P2: Parser<T>,
+{
+    fn parse<'a>(&self, input: &'a str) -> Option<((S, T), &'a str)> {
+        match self.parser1.parse(input) {
+            None => None,
+            Some((v1, out1)) => match self.parser2.parse(out1) {
+                None => None,
+                Some((v2, out2)) => Some(((v1, v2), out2)),
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -177,5 +198,24 @@ mod tests {
     fn nat_works() {
         let parser = Nat {};
         assert_eq!(parser.parse("123abc"), Some((123, "abc")));
+    }
+
+    #[test]
+    fn seq_works() {
+        let paren_parser = Seq {
+            parser1: Token {
+                parser: char_parser('('),
+            },
+            parser2: Seq {
+                parser1: Token { parser: Nat {} },
+                parser2: Token {
+                    parser: char_parser(')'),
+                },
+            },
+        };
+
+        assert_eq!(paren_parser.parse("  (  123  )  a").unwrap().0 .1 .0, 123);
+        assert_eq!(paren_parser.parse("  (  123  )  a").unwrap().1, "a");
+        assert_eq!(paren_parser.parse("a 123 "), None);
     }
 }
