@@ -154,7 +154,7 @@ fn lazy<'a, T: 'a>(parser_fn: impl Fn() -> Box<Parser<'a, T>> + 'a) -> Box<Parse
     })
 }
 
-fn expr<'a>() -> Box<Parser<'a, u32>> {
+pub fn expr<'a>() -> Box<Parser<'a, u32>> {
     let add = ret(
         seq(
             token(lazy(|| term())),
