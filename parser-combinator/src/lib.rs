@@ -141,9 +141,7 @@ fn nat<'a>() -> Box<Parser<'a, u32>> {
 }
 
 // 遅延評価を実現するパーサーコンビネーター
-fn lazy<T: 'static>(
-    parser_fn: impl Fn() -> Box<Parser<'static, T>> + 'static,
-) -> Box<Parser<'static, T>> {
+fn lazy<'a, T: 'a>(parser_fn: impl Fn() -> Box<Parser<'a, T>> + 'a) -> Box<Parser<'a, T>> {
     // RcとRefCellを使って、パーサーを一度だけ初期化する
     let parser_cell = Rc::new(RefCell::new(None));
     Box::new(move |input: &str| {
@@ -156,7 +154,7 @@ fn lazy<T: 'static>(
     })
 }
 
-fn expr() -> Box<Parser<'static, u32>> {
+fn expr<'a>() -> Box<Parser<'a, u32>> {
     let add = ret(
         seq(
             token(lazy(|| term())),
@@ -167,7 +165,7 @@ fn expr() -> Box<Parser<'static, u32>> {
     alt(add, lazy(|| term()))
 }
 
-fn term() -> Box<Parser<'static, u32>> {
+fn term<'a>() -> Box<Parser<'a, u32>> {
     let mul = ret(
         seq(
             token(lazy(|| factor())),
@@ -178,7 +176,7 @@ fn term() -> Box<Parser<'static, u32>> {
     alt(mul, lazy(|| factor()))
 }
 
-fn factor() -> Box<Parser<'static, u32>> {
+fn factor<'a>() -> Box<Parser<'a, u32>> {
     let paren = ret(
         seq(
             token(char_parser('(')),
