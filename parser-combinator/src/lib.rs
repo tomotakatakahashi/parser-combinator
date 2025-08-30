@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-type Parser<'a, T> = dyn Fn(&'a str) -> Option<(T, &'a str)>;
+type Parser<'a, T> = dyn Fn(&'a str) -> Option<(T, &'a str)> + 'a;
 
 fn item<'a>() -> Box<Parser<'a, char>> {
     Box::new(|input: &str| {
@@ -37,33 +37,28 @@ fn char_parser<'a>(target: char) -> Box<Parser<'a, char>> {
     sat(move |c| c == target)
 }
 
-fn many<T: 'static>(parser: Box<Parser<'static, T>>) -> Box<Parser<'static, Vec<T>>> {
-    Box::new(move |input: &str| {
-        let mut results = Vec::new();
-        let mut original_input = input;
+fn many<'a, T: 'a>(parser: Rc<Parser<'a, T>>) -> Box<Parser<'a, Vec<T>>> {
+    Box::new(move |mut input: &'a str| {
+        let mut results: Vec<T> = Vec::new();
 
         loop {
-            // 元のパーサーで解析を試みる
-            match parser(original_input) {
+            match parser(input) {
                 Some((result, next_input)) => {
-                    // 成功したら結果を保存し、次の入力に進む
                     results.push(result);
-                    original_input = next_input;
+                    input = next_input;
                 }
                 None => {
-                    // 失敗したらループを抜ける
                     break;
                 }
             }
         }
 
-        // 0回でも成功とみなす
-        Some((results, original_input))
+        Some((results, input))
     })
 }
 
-fn space() -> Box<Parser<'static, Vec<char>>> {
-    many(sat(|c| c.is_whitespace()))
+fn space<'a>() -> Box<Parser<'a, Vec<char>>> {
+    many(Rc::from(sat(|c| c.is_whitespace())))
 }
 
 fn seq<S: 'static, T: 'static>(
@@ -243,7 +238,7 @@ mod tests {
 
     #[test]
     fn token_works() {
-        let parser = token(many(digit()));
+        let parser = token(many(Rc::from(digit())));
         assert_eq!(parser("  12  a"), Some((vec!['1', '2'], "a")));
     }
 
