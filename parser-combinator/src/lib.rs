@@ -61,10 +61,10 @@ fn space<'a>() -> Box<Parser<'a, Vec<char>>> {
     many(Rc::from(sat(|c| c.is_whitespace())))
 }
 
-fn seq<S: 'static, T: 'static>(
-    parser1: Box<Parser<'static, S>>,
-    parser2: Box<Parser<'static, T>>,
-) -> Box<Parser<'static, (S, T)>> {
+fn seq<'a, S: 'a, T: 'a>(
+    parser1: Box<Parser<'a, S>>,
+    parser2: Box<Parser<'a, T>>,
+) -> Box<Parser<'a, (S, T)>> {
     Box::new(move |input: &str| match parser1(input) {
         None => None,
         Some((v1, out1)) => match parser2(out1) {
@@ -74,17 +74,14 @@ fn seq<S: 'static, T: 'static>(
     })
 }
 
-fn alt<T: 'static>(
-    parser1: Box<Parser<'static, T>>,
-    parser2: Box<Parser<'static, T>>,
-) -> Box<Parser<'static, T>> {
+fn alt<'a, T: 'a>(parser1: Box<Parser<'a, T>>, parser2: Box<Parser<'a, T>>) -> Box<Parser<'a, T>> {
     Box::new(move |input: &str| match parser1(input) {
         Some(x) => Some(x),
         None => parser2(input),
     })
 }
 
-fn ret<S: 'static, T, F>(parser: Box<Parser<'static, S>>, converter: F) -> Box<Parser<'static, T>>
+fn ret<'a, S: 'a, T, F>(parser: Box<Parser<'a, S>>, converter: F) -> Box<Parser<'a, T>>
 where
     F: Fn(S) -> T + 'static,
 {
@@ -94,7 +91,7 @@ where
     })
 }
 
-fn some<T: 'static>(parser: Box<Parser<'static, T>>) -> Box<Parser<'static, Vec<T>>> {
+fn some<'a, T: 'a>(parser: Box<Parser<'a, T>>) -> Box<Parser<'a, Vec<T>>> {
     // Copy and paste the many function becuase I couldn't resolve an ownership issue.
     Box::new(move |input: &str| {
         let mut results = Vec::new();
@@ -123,7 +120,7 @@ fn some<T: 'static>(parser: Box<Parser<'static, T>>) -> Box<Parser<'static, Vec<
     })
 }
 
-fn token<T: 'static>(parser: Box<Parser<'static, T>>) -> Box<Parser<'static, T>> {
+fn token<'a, T: 'a>(parser: Box<Parser<'a, T>>) -> Box<Parser<'a, T>> {
     Box::new(move |input: &str| {
         let leading_spaces_trimmed = space()(input).unwrap().1;
         return match parser(leading_spaces_trimmed) {
@@ -136,7 +133,7 @@ fn token<T: 'static>(parser: Box<Parser<'static, T>>) -> Box<Parser<'static, T>>
     })
 }
 
-fn nat() -> Box<Parser<'static, u32>> {
+fn nat<'a>() -> Box<Parser<'a, u32>> {
     ret(some(digit()), |v| {
         let string_repr: String = v.into_iter().collect();
         string_repr.parse().unwrap()
