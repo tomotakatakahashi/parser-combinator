@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-type Parser<'a, T> = dyn Fn(&'a str) -> Option<(T, &'a str)> + 'a;
+pub type Parser<'a, T> = dyn Fn(&'a str) -> Option<(T, &'a str)> + 'a;
 
 fn item<'a>() -> Box<Parser<'a, char>> {
     Box::new(|input: &str| {
@@ -33,7 +33,7 @@ fn digit<'a>() -> Box<Parser<'a, char>> {
     sat(|c| c.is_ascii_digit())
 }
 
-fn char_parser<'a>(target: char) -> Box<Parser<'a, char>> {
+pub fn char_parser<'a>(target: char) -> Box<Parser<'a, char>> {
     sat(move |c| c == target)
 }
 
@@ -61,7 +61,7 @@ fn space<'a>() -> Box<Parser<'a, Vec<char>>> {
     many(Rc::from(sat(|c| c.is_whitespace())))
 }
 
-fn seq<'a, S: 'a, T: 'a>(
+pub fn seq<'a, S: 'a, T: 'a>(
     parser1: Box<Parser<'a, S>>,
     parser2: Box<Parser<'a, T>>,
 ) -> Box<Parser<'a, (S, T)>> {
@@ -74,14 +74,17 @@ fn seq<'a, S: 'a, T: 'a>(
     })
 }
 
-fn alt<'a, T: 'a>(parser1: Box<Parser<'a, T>>, parser2: Box<Parser<'a, T>>) -> Box<Parser<'a, T>> {
+pub fn alt<'a, T: 'a>(
+    parser1: Box<Parser<'a, T>>,
+    parser2: Box<Parser<'a, T>>,
+) -> Box<Parser<'a, T>> {
     Box::new(move |input: &str| match parser1(input) {
         Some(x) => Some(x),
         None => parser2(input),
     })
 }
 
-fn ret<'a, S: 'a, T, F>(parser: Box<Parser<'a, S>>, converter: F) -> Box<Parser<'a, T>>
+pub fn ret<'a, S: 'a, T, F>(parser: Box<Parser<'a, S>>, converter: F) -> Box<Parser<'a, T>>
 where
     F: Fn(S) -> T + 'static,
 {
@@ -120,7 +123,7 @@ fn some<'a, T: 'a>(parser: Box<Parser<'a, T>>) -> Box<Parser<'a, Vec<T>>> {
     })
 }
 
-fn token<'a, T: 'a>(parser: Box<Parser<'a, T>>) -> Box<Parser<'a, T>> {
+pub fn token<'a, T: 'a>(parser: Box<Parser<'a, T>>) -> Box<Parser<'a, T>> {
     Box::new(move |input: &str| {
         let leading_spaces_trimmed = space()(input).unwrap().1;
         return match parser(leading_spaces_trimmed) {
@@ -133,7 +136,7 @@ fn token<'a, T: 'a>(parser: Box<Parser<'a, T>>) -> Box<Parser<'a, T>> {
     })
 }
 
-fn nat<'a>() -> Box<Parser<'a, u32>> {
+pub fn nat<'a>() -> Box<Parser<'a, u32>> {
     ret(some(digit()), |v| {
         let string_repr: String = v.into_iter().collect();
         string_repr.parse().unwrap()
@@ -141,7 +144,7 @@ fn nat<'a>() -> Box<Parser<'a, u32>> {
 }
 
 // 遅延評価を実現するパーサーコンビネーター
-fn lazy<'a, T: 'a>(parser_fn: impl Fn() -> Box<Parser<'a, T>> + 'a) -> Box<Parser<'a, T>> {
+pub fn lazy<'a, T: 'a>(parser_fn: impl Fn() -> Box<Parser<'a, T>> + 'a) -> Box<Parser<'a, T>> {
     // RcとRefCellを使って、パーサーを一度だけ初期化する
     let parser_cell = Rc::new(RefCell::new(None));
     Box::new(move |input: &str| {
@@ -152,39 +155,6 @@ fn lazy<'a, T: 'a>(parser_fn: impl Fn() -> Box<Parser<'a, T>> + 'a) -> Box<Parse
         // 初期化されたパーサーを実行
         parser_cell.borrow().as_ref().unwrap()(input)
     })
-}
-
-pub fn expr<'a>() -> Box<Parser<'a, u32>> {
-    let add = ret(
-        seq(
-            token(lazy(|| term())),
-            seq(token(char_parser('+')), token(lazy(|| expr()))),
-        ),
-        |v| v.0 + v.1 .1,
-    );
-    alt(add, lazy(|| term()))
-}
-
-fn term<'a>() -> Box<Parser<'a, u32>> {
-    let mul = ret(
-        seq(
-            token(lazy(|| factor())),
-            seq(token(char_parser('*')), token(lazy(|| term()))),
-        ),
-        |(left, (_, right))| left * right,
-    );
-    alt(mul, lazy(|| factor()))
-}
-
-fn factor<'a>() -> Box<Parser<'a, u32>> {
-    let paren = ret(
-        seq(
-            token(char_parser('(')),
-            seq(lazy(|| expr()), token(char_parser(')'))),
-        ),
-        |(_c1, (x, _c2))| x,
-    );
-    alt(paren, nat())
 }
 
 #[cfg(test)]
@@ -241,13 +211,5 @@ mod tests {
     fn nat_works() {
         assert_eq!(nat()("123abc"), Some((123, "abc")));
         assert_eq!(nat()(""), None);
-    }
-
-    #[test]
-    fn expr_works() {
-        assert_eq!(expr()("123"), Some((123, "")));
-        assert_eq!(expr()("1 + 23"), Some((24, "")));
-        assert_eq!(expr()("1 + (2 + 3)"), Some((6, "")));
-        assert_eq!(expr()("1 + (2 + 3) * ((4))"), Some((21, "")));
     }
 }

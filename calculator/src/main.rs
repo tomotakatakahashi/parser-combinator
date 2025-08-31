@@ -1,4 +1,4 @@
-use parser_combinator::expr;
+mod expr_parser;
 use yew::prelude::*;
 
 #[function_component(App)]
@@ -10,7 +10,7 @@ fn app() -> Html {
         let result = result.clone();
         move |_| {
             //let text_value = (*text).clone();
-            let evaluated = expr()(&text_cloned);
+            let evaluated = expr_parser::expr()(&text_cloned);
             match evaluated {
                 None => result.set(123),
                 Some((v, _)) => result.set(v),
