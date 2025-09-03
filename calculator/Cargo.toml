@@ -4,5 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-yew = { git = "https://github.com/yewstack/yew/", features = ["csr"] }
-parser-combinator = { path = "../parser-combinator" }
+iced = { version = "0.13.1", features = ["debug", "fira-sans", "webgl"]}
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+#iced.workspace = true
+#iced.features = ["webgl", "fira-sans"]

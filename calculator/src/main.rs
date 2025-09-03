@@ -1,32 +1,42 @@
-mod expr_parser;
-use yew::prelude::*;
+#[derive(Default)]
+struct Counter {
+    value: i32,
+}
 
-#[function_component(App)]
-fn app() -> Html {
-    let result = use_state(|| 0);
-    let text = use_state(|| "1 + (2 + 3) * 4".to_string());
-    let text_cloned = (*text).clone();
-    let onclick = {
-        let result = result.clone();
-        move |_| {
-            //let text_value = (*text).clone();
-            let evaluated = expr_parser::expr()(&text_cloned);
-            match evaluated {
-                None => result.set(123),
-                Some((v, _)) => result.set(v),
+#[derive(Debug, Clone, Copy)]
+pub enum Message {
+    Increment,
+    Decrement,
+}
+
+use iced::widget::{button, column, text, Column};
+
+impl Counter {
+    pub fn view(&self) -> Column<Message> {
+        // We use a column: a simple vertical layout
+        column![
+            // The increment button. We tell it to produce an
+            // `Increment` message when pressed
+            button("+").on_press(Message::Increment),
+            // We show the value of the counter here
+            text(self.value).size(50),
+            // The decrement button. We tell it to produce a
+            // `Decrement` message when pressed
+            button("-").on_press(Message::Decrement),
+        ]
+    }
+    pub fn update(&mut self, message: Message) {
+        match message {
+            Message::Increment => {
+                self.value += 1;
+            }
+            Message::Decrement => {
+                self.value -= 1;
             }
         }
-    };
-
-    html! {
-        <div>
-            <button {onclick}>{ "+1" }</button>
-            <input type="text" value={(*text).clone()}/>
-            <p>{ *result }</p>
-        </div>
     }
 }
 
-fn main() {
-    yew::Renderer::<App>::new().render();
+fn main() -> iced::Result {
+    iced::run("A cool counter", Counter::update, Counter::view)
 }
