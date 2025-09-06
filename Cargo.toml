@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = [ "calculator","parser-combinator", "calculator"]
+members = [ "parser-combinator", "calculator"]
 
 [profile]
 
