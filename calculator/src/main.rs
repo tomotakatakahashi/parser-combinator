@@ -19,7 +19,13 @@ fn App() -> Element {
 fn Calculator() -> Element {
     let initial_input = "1 + (2 + 3) * 4";
     let mut input_text = use_signal(|| String::from(initial_input));
-    let mut calc_result = use_signal(|| String::new());
+    let input_text_clone = input_text();
+    let mut calc_result = use_signal(|| {
+        expr_parser::expr()(&input_text_clone)
+            .unwrap()
+            .0
+            .to_string()
+    });
 
     let oninput = move |event: Event<FormData>| {
         input_text.set(event.value());
