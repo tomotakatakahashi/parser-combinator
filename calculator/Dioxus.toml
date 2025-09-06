@@ -3,7 +3,8 @@
 [web.app]
 
 # HTML title tag content
-title = "calculator"
+title = "Calculator"
+base_path = "parser-combinator" # GitHub repository name
 
 # include `assets` in web platform
 [web.resource]
