@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 mod expr_parser;
 
-const MAIN_CSS: Asset = asset!("/assets/main.css");
+const MAIN_CSS: Asset = asset!("/assets/bulma.min.css");
 
 fn main() {
     dioxus::launch(App);
