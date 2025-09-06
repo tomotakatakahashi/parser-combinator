@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+mod expr_parser;
 
 const MAIN_CSS: Asset = asset!("/assets/main.css");
 
@@ -10,23 +11,36 @@ fn main() {
 fn App() -> Element {
     rsx! {
         document::Link { rel: "stylesheet", href: MAIN_CSS }
-        Ipt {}
+        Calculator {}
     }
 }
 
 #[component]
-fn Ipt() -> Element {
-    let mut input_text = use_signal(|| String::from("1 + (2 + 3) * 4"));
+fn Calculator() -> Element {
+    let initial_input = "1 + (2 + 3) * 4";
+    let mut input_text = use_signal(|| String::from(initial_input));
+    let mut calc_result = use_signal(|| String::new());
 
     let oninput = move |event: Event<FormData>| {
-        input_text.set(event.value() + "aaa");
+        input_text.set(event.value());
+        let input_text = input_text();
+        let parser = expr_parser::expr();
+        let result = match parser(&input_text) {
+            None => String::from("Error!"),
+            Some((v, "")) => v.to_string(),
+            Some((_, reminder)) => format!("Remains: {reminder}"),
+        };
+        calc_result.set(result);
     };
 
     rsx! {
-    input {
-        class: "input",
-        value: input_text,
-        oninput: oninput
-    }
+         input {
+           class: "input",
+            value: input_text,
+            oninput: oninput
+        }
+        div {
+            { calc_result.to_string() }
+        }
     }
 }

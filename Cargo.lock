@@ -325,6 +325,7 @@ name = "calculator"
 version = "0.1.0"
 dependencies = [
  "dioxus",
+ "parser-combinator",
 ]
 
 [[package]]
