@@ -13,7 +13,7 @@ fn App() -> Element {
         document::Link { rel: "stylesheet", href: MAIN_CSS }
         h1 { class: "title is-1", "Parser Combinator demo" }
         p { class: "block",
-            "A simple calculator that only supports non-negative integers, parenthesis, addition, and multiplication."
+            "A simple calculator that only supports non-negative integers, parentheses, addition, and multiplication."
         }
         p { class: "block", "This app is created to demonstrate the parser combinator library." }
         Calculator {}
