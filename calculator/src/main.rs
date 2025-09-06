@@ -16,10 +16,17 @@ fn App() -> Element {
 
 #[component]
 fn Ipt() -> Element {
+    let mut input_text = use_signal(|| String::from("1 + (2 + 3) * 4"));
+
+    let oninput = move |event: Event<FormData>| {
+        input_text.set(event.value() + "aaa");
+    };
+
     rsx! {
     input {
         class: "input",
-        placeholder: "Enter your name",
+        value: input_text,
+        oninput: oninput
     }
     }
 }
