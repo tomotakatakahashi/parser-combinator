@@ -1,42 +1,37 @@
-#[derive(Default)]
-struct Counter {
-    value: i32,
+use dioxus::prelude::*;
+
+const FAVICON: Asset = asset!("/assets/favicon.ico");
+const MAIN_CSS: Asset = asset!("/assets/main.css");
+const HEADER_SVG: Asset = asset!("/assets/header.svg");
+
+fn main() {
+    dioxus::launch(App);
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Message {
-    Increment,
-    Decrement,
-}
+#[component]
+fn App() -> Element {
+    rsx! {
+        document::Link { rel: "icon", href: FAVICON }
+        document::Link { rel: "stylesheet", href: MAIN_CSS }
+        Hero {}
 
-use iced::widget::{button, column, text, Column};
-
-impl Counter {
-    pub fn view(&self) -> Column<Message> {
-        // We use a column: a simple vertical layout
-        column![
-            // The increment button. We tell it to produce an
-            // `Increment` message when pressed
-            button("+").on_press(Message::Increment),
-            // We show the value of the counter here
-            text(self.value).size(50),
-            // The decrement button. We tell it to produce a
-            // `Decrement` message when pressed
-            button("-").on_press(Message::Decrement),
-        ]
     }
-    pub fn update(&mut self, message: Message) {
-        match message {
-            Message::Increment => {
-                self.value += 1;
-            }
-            Message::Decrement => {
-                self.value -= 1;
+}
+
+#[component]
+pub fn Hero() -> Element {
+    rsx! {
+        div {
+            id: "hero",
+            img { src: HEADER_SVG, id: "header" }
+            div { id: "links",
+                a { href: "https://dioxuslabs.com/learn/0.6/", "📚 Learn Dioxus" }
+                a { href: "https://dioxuslabs.com/awesome", "🚀 Awesome Dioxus" }
+                a { href: "https://github.com/dioxus-community/", "📡 Community Libraries" }
+                a { href: "https://github.com/DioxusLabs/sdk", "⚙️ Dioxus Development Kit" }
+                a { href: "https://marketplace.visualstudio.com/items?itemName=DioxusLabs.dioxus", "💫 VSCode Extension" }
+                a { href: "https://discord.gg/XgGxMSkvUM", "👋 Community Discord" }
             }
         }
     }
-}
-
-fn main() -> iced::Result {
-    iced::run("A cool counter", Counter::update, Counter::view)
 }
