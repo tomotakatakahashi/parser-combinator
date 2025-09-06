@@ -11,6 +11,11 @@ fn main() {
 fn App() -> Element {
     rsx! {
         document::Link { rel: "stylesheet", href: MAIN_CSS }
+        h1 { class: "title is-1", "Parser Combinator demo" }
+        p { class: "block",
+            "A simple calculator that only supports non-negative integers, parenthesis, addition, and multiplication."
+        }
+        p { class: "block", "This app is created to demonstrate the parser combinator library." }
         Calculator {}
     }
 }
@@ -40,13 +45,31 @@ fn Calculator() -> Element {
     };
 
     rsx! {
-         input {
-           class: "input",
-            value: input_text,
-            oninput: oninput
+        div { class: "field is-horizontal",
+            div { class: "field-label is-normal",
+                label { class: "label", "Input" }
+            }
+            div { class: "field-body",
+                div { class: "field",
+                    input { class: "input", value: input_text, oninput }
+                }
+            }
         }
-        div {
-            { calc_result.to_string() }
+        div { class: "field is-horizontal",
+            div { class: "field-label is-normal",
+                div { class: "label",
+                    label { class: "label", "Result" }
+                }
+            }
+            div { class: "field-body",
+                div { class: "field",
+                    input {
+                        class: "input is-static",
+                        readonly: true,
+                        value: calc_result.to_string(),
+                    }
+                }
+            }
         }
     }
 }
