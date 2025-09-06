@@ -63,11 +63,7 @@ fn Calculator() -> Element {
             }
             div { class: "field-body",
                 div { class: "field",
-                    input {
-                        class: "input is-static",
-                        readonly: true,
-                        value: calc_result.to_string(),
-                    }
+                    div { class: "input is-static", {calc_result} }
                 }
             }
         }
